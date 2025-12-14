@@ -33,23 +33,59 @@ const VMChecker = () => {
     setError(null);
 
     try {
-      // For local development, use localhost
-      // For production, this will use the deployed API
-      const apiUrl = process.env.NODE_ENV === 'development'
-        ? 'http://localhost:7071/api/vm-availability'
-        : '/api/vm-availability';
+      // Mock data for MVP (no API needed!)
+      const mockData = generateMockData(location, vmSeries);
 
-      const response = await axios.get(apiUrl, {
-        params: { location, series: vmSeries }
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      setResults({
+        location: location,
+        series: vmSeries,
+        vms: mockData,
+        timestamp: new Date().toISOString()
       });
-
-      setResults(response.data);
     } catch (err) {
       setError('Failed to fetch VM availability. Please try again.');
       console.error(err);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Mock data generator
+  const generateMockData = (loc, series) => {
+    const allVMs = {
+      'Standard_B': [
+        { name: 'Standard_B1s', vCPUs: 1, memoryGB: 1, available: true, pricePerMonth: 8 },
+        { name: 'Standard_B2s', vCPUs: 2, memoryGB: 4, available: true, pricePerMonth: 30 },
+        { name: 'Standard_B2ms', vCPUs: 2, memoryGB: 8, available: false, pricePerMonth: 60 },
+        { name: 'Standard_B4ms', vCPUs: 4, memoryGB: 16, available: true, pricePerMonth: 120 }
+      ],
+      'Standard_D': [
+        { name: 'Standard_D2s_v3', vCPUs: 2, memoryGB: 8, available: false, pricePerMonth: 70 },
+        { name: 'Standard_D2s_v4', vCPUs: 2, memoryGB: 8, available: true, pricePerMonth: 70 },
+        { name: 'Standard_D2s_v5', vCPUs: 2, memoryGB: 8, available: false, pricePerMonth: 68 },
+        { name: 'Standard_D4s_v3', vCPUs: 4, memoryGB: 16, available: true, pricePerMonth: 140 },
+        { name: 'Standard_D4s_v4', vCPUs: 4, memoryGB: 16, available: true, pricePerMonth: 140 },
+        { name: 'Standard_D8s_v4', vCPUs: 8, memoryGB: 32, available: true, pricePerMonth: 280 }
+      ],
+      'Standard_E': [
+        { name: 'Standard_E2s_v3', vCPUs: 2, memoryGB: 16, available: true, pricePerMonth: 120 },
+        { name: 'Standard_E2s_v4', vCPUs: 2, memoryGB: 16, available: true, pricePerMonth: 120 },
+        { name: 'Standard_E4s_v3', vCPUs: 4, memoryGB: 32, available: true, pricePerMonth: 240 },
+        { name: 'Standard_E4s_v4', vCPUs: 4, memoryGB: 32, available: false, pricePerMonth: 240 },
+        { name: 'Standard_E8s_v4', vCPUs: 8, memoryGB: 64, available: true, pricePerMonth: 480 }
+      ],
+      'Standard_F': [
+        { name: 'Standard_F2s_v2', vCPUs: 2, memoryGB: 4, available: true, pricePerMonth: 68 },
+        { name: 'Standard_F4s_v2', vCPUs: 4, memoryGB: 8, available: true, pricePerMonth: 136 },
+        { name: 'Standard_F8s_v2', vCPUs: 8, memoryGB: 16, available: true, pricePerMonth: 272 },
+        { name: 'Standard_F16s_v2', vCPUs: 16, memoryGB: 32, available: false, pricePerMonth: 544 }
+      ]
+    };
+
+    return allVMs[series] || [];
   };
 
   return (
