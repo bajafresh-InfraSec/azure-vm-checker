@@ -9,7 +9,19 @@
       content="Check Azure VM availability and pricing across all regions in real-time"
     />
     <meta name="keywords" content="Azure, VM, Virtual Machine, Availability, Pricing, Cloud, Microsoft" />
-    <title>Azure VM Size Checker - Real-time Availability & Pricing</title>
+    <title>azsize.com - Azure VM Size & Availability Checker</title>
+
+    <script>
+      // Redirect apex domain to www
+      if (window.location.hostname === 'azsize.com') {
+        window.location.replace('https://www.azsize.com' + window.location.pathname);
+      }
+      // Redirect azvmsize.com to www.azsize.com
+      if (window.location.hostname === 'azvmsize.com' ||
+          window.location.hostname === 'www.azvmsize.com') {
+        window.location.replace('https://www.azsize.com' + window.location.pathname);
+      }
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
