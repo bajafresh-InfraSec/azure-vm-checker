@@ -1,5 +1,4 @@
-const { ComputeManagementClient } = require("@azure/arm-compute");
-const { ClientSecretCredential } = require("@azure/identity");
+const https = require('https');
 
 // In-memory cache with 15-minute TTL
 const cache = new Map();
@@ -44,42 +43,36 @@ module.exports = async function (context, req) {
             return;
         }
 
-        // Initialize Azure credentials
-        const credential = new ClientSecretCredential(
-            process.env.AZURE_TENANT_ID,
-            process.env.AZURE_CLIENT_ID,
-            process.env.AZURE_CLIENT_SECRET
-        );
-
+        // Get Azure credentials from environment
         const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
-        const client = new ComputeManagementClient(credential, subscriptionId);
+        const tenantId = process.env.AZURE_TENANT_ID;
+        const clientId = process.env.AZURE_CLIENT_ID;
+        const clientSecret = process.env.AZURE_CLIENT_SECRET;
+
+        if (!subscriptionId || !tenantId || !clientId || !clientSecret) {
+            throw new Error('Azure credentials not configured');
+        }
+
+        context.log('Getting access token...');
+
+        // Get access token using client credentials flow
+        const accessToken = await getAccessToken(tenantId, clientId, clientSecret);
 
         context.log(`Fetching VM sizes for ${location} with series ${vmSeries}`);
 
-        // Get all VM sizes available in the region
-        const vmSizes = [];
-        for await (const size of client.virtualMachineSizes.list(location)) {
-            // Filter by series prefix
-            if (size.name.startsWith(vmSeries)) {
-                vmSizes.push(size);
-            }
-        }
+        // Get VM sizes from Azure REST API
+        const vmSizes = await getVMSizes(subscriptionId, location, accessToken);
 
-        context.log(`Found ${vmSizes.length} VM sizes`);
+        // Filter by series
+        const filteredVMs = vmSizes.filter(vm => vm.name.startsWith(vmSeries));
 
-        // Check resource SKUs for availability restrictions
-        const skuClient = client.resourceSkus;
-        const skus = [];
-        for await (const sku of skuClient.list()) {
-            if (sku.resourceType === 'virtualMachines' &&
-                sku.locations &&
-                sku.locations.some(loc => loc.toLowerCase() === location.toLowerCase())) {
-                skus.push(sku);
-            }
-        }
+        context.log(`Found ${filteredVMs.length} VM sizes`);
+
+        // Get resource SKUs to check availability
+        const skus = await getResourceSKUs(subscriptionId, location, accessToken);
 
         // Build result with availability information
-        const results = vmSizes.map(vm => {
+        const results = filteredVMs.map(vm => {
             const sku = skus.find(s => s.name === vm.name);
 
             // Check if SKU has restrictions
@@ -99,7 +92,7 @@ module.exports = async function (context, req) {
                 }
             }
 
-            // Estimate pricing (simplified - real pricing would use Azure Retail Prices API)
+            // Estimate pricing
             const pricePerMonth = estimatePrice(vm.name, vm.numberOfCores, vm.memoryInMB);
 
             return {
@@ -155,8 +148,102 @@ module.exports = async function (context, req) {
     }
 };
 
+// Get Azure AD access token using client credentials
+function getAccessToken(tenantId, clientId, clientSecret) {
+    return new Promise((resolve, reject) => {
+        const data = `grant_type=client_credentials&client_id=${clientId}&client_secret=${encodeURIComponent(clientSecret)}&resource=https://management.azure.com/`;
+
+        const options = {
+            hostname: 'login.microsoftonline.com',
+            path: `/${tenantId}/oauth2/token`,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Content-Length': data.length
+            }
+        };
+
+        const req = https.request(options, (res) => {
+            let body = '';
+            res.on('data', chunk => body += chunk);
+            res.on('end', () => {
+                if (res.statusCode === 200) {
+                    const json = JSON.parse(body);
+                    resolve(json.access_token);
+                } else {
+                    reject(new Error(`Failed to get access token: ${res.statusCode} ${body}`));
+                }
+            });
+        });
+
+        req.on('error', reject);
+        req.write(data);
+        req.end();
+    });
+}
+
+// Get VM sizes from Azure REST API
+function getVMSizes(subscriptionId, location, accessToken) {
+    return new Promise((resolve, reject) => {
+        const options = {
+            hostname: 'management.azure.com',
+            path: `/subscriptions/${subscriptionId}/providers/Microsoft.Compute/locations/${location}/vmSizes?api-version=2023-03-01`,
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            }
+        };
+
+        const req = https.request(options, (res) => {
+            let body = '';
+            res.on('data', chunk => body += chunk);
+            res.on('end', () => {
+                if (res.statusCode === 200) {
+                    const json = JSON.parse(body);
+                    resolve(json.value || []);
+                } else {
+                    reject(new Error(`Failed to get VM sizes: ${res.statusCode} ${body}`));
+                }
+            });
+        });
+
+        req.on('error', reject);
+        req.end();
+    });
+}
+
+// Get resource SKUs from Azure REST API
+function getResourceSKUs(subscriptionId, location, accessToken) {
+    return new Promise((resolve, reject) => {
+        const options = {
+            hostname: 'management.azure.com',
+            path: `/subscriptions/${subscriptionId}/providers/Microsoft.Compute/skus?api-version=2021-07-01&$filter=location eq '${location}'`,
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            }
+        };
+
+        const req = https.request(options, (res) => {
+            let body = '';
+            res.on('data', chunk => body += chunk);
+            res.on('end', () => {
+                if (res.statusCode === 200) {
+                    const json = JSON.parse(body);
+                    const vmSkus = (json.value || []).filter(sku => sku.resourceType === 'virtualMachines');
+                    resolve(vmSkus);
+                } else {
+                    reject(new Error(`Failed to get resource SKUs: ${res.statusCode} ${body}`));
+                }
+            });
+        });
+
+        req.on('error', reject);
+        req.end();
+    });
+}
+
 // Simple price estimation based on VM specs
-// In production, use Azure Retail Prices API for accurate pricing
 function estimatePrice(vmName, cores, memoryMB) {
     const memoryGB = memoryMB / 1024;
 
