@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import './VMChecker.css';
-import axios from 'axios';
 
 const VMChecker = () => {
   const [location, setLocation] = useState('centralus');
