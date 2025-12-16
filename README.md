@@ -2,6 +2,8 @@
 
 Real-time Azure VM availability and pricing checker across all regions.
 
+**🌐 Live at: [www.azsize.com](https://www.azsize.com)**
+
 ## 🚀 Features
 
 - ✅ Check VM availability by region
