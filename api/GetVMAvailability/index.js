@@ -215,9 +215,10 @@ function getVMSizes(subscriptionId, location, accessToken) {
 // Get resource SKUs from Azure REST API
 function getResourceSKUs(subscriptionId, location, accessToken) {
     return new Promise((resolve, reject) => {
+        const filter = encodeURIComponent(`location eq '${location}'`);
         const options = {
             hostname: 'management.azure.com',
-            path: `/subscriptions/${subscriptionId}/providers/Microsoft.Compute/skus?api-version=2021-07-01&$filter=location eq '${location}'`,
+            path: `/subscriptions/${subscriptionId}/providers/Microsoft.Compute/skus?api-version=2021-07-01&$filter=${filter}`,
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${accessToken}`
