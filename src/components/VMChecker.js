@@ -9,6 +9,7 @@ const VMChecker = () => {
   const [error, setError] = useState(null);
 
   const azureRegions = [
+    // Americas
     { value: 'centralus', label: 'Central US' },
     { value: 'eastus', label: 'East US' },
     { value: 'eastus2', label: 'East US 2' },
@@ -18,13 +19,67 @@ const VMChecker = () => {
     { value: 'northcentralus', label: 'North Central US' },
     { value: 'southcentralus', label: 'South Central US' },
     { value: 'westcentralus', label: 'West Central US' },
+    { value: 'canadacentral', label: 'Canada Central' },
+    { value: 'canadaeast', label: 'Canada East' },
+    { value: 'brazilsouth', label: 'Brazil South' },
+    { value: 'brazilsoutheast', label: 'Brazil Southeast' },
+    // Europe
+    { value: 'northeurope', label: 'North Europe' },
+    { value: 'westeurope', label: 'West Europe' },
+    { value: 'uksouth', label: 'UK South' },
+    { value: 'ukwest', label: 'UK West' },
+    { value: 'francecentral', label: 'France Central' },
+    { value: 'francesouth', label: 'France South' },
+    { value: 'germanywestcentral', label: 'Germany West Central' },
+    { value: 'germanynorth', label: 'Germany North' },
+    { value: 'norwayeast', label: 'Norway East' },
+    { value: 'norwaywest', label: 'Norway West' },
+    { value: 'switzerlandnorth', label: 'Switzerland North' },
+    { value: 'switzerlandwest', label: 'Switzerland West' },
+    { value: 'swedencentral', label: 'Sweden Central' },
+    // Asia Pacific
+    { value: 'eastasia', label: 'East Asia' },
+    { value: 'southeastasia', label: 'Southeast Asia' },
+    { value: 'japaneast', label: 'Japan East' },
+    { value: 'japanwest', label: 'Japan West' },
+    { value: 'australiaeast', label: 'Australia East' },
+    { value: 'australiasoutheast', label: 'Australia Southeast' },
+    { value: 'australiacentral', label: 'Australia Central' },
+    { value: 'koreacentral', label: 'Korea Central' },
+    { value: 'koreasouth', label: 'Korea South' },
+    { value: 'centralindia', label: 'Central India' },
+    { value: 'southindia', label: 'South India' },
+    { value: 'westindia', label: 'West India' },
+    // Middle East & Africa
+    { value: 'uaenorth', label: 'UAE North' },
+    { value: 'uaecentral', label: 'UAE Central' },
+    { value: 'southafricanorth', label: 'South Africa North' },
+    { value: 'southafricawest', label: 'South Africa West' },
   ];
 
   const vmSeriesList = [
+    // General Purpose
+    { value: 'Standard_A', label: 'A-series (Basic)' },
     { value: 'Standard_B', label: 'B-series (Burstable)' },
     { value: 'Standard_D', label: 'D-series (General Purpose)' },
-    { value: 'Standard_E', label: 'E-series (Memory Optimized)' },
+    { value: 'Standard_DC', label: 'DC-series (Confidential Compute)' },
+    { value: 'Standard_DD', label: 'DD-series (General Purpose with Local Disk)' },
+    // Compute Optimized
     { value: 'Standard_F', label: 'F-series (Compute Optimized)' },
+    // Memory Optimized
+    { value: 'Standard_E', label: 'E-series (Memory Optimized)' },
+    { value: 'Standard_ED', label: 'ED-series (Memory with Local Disk)' },
+    { value: 'Standard_M', label: 'M-series (Large Memory)' },
+    // Storage Optimized
+    { value: 'Standard_L', label: 'L-series (Storage Optimized)' },
+    // GPU
+    { value: 'Standard_NC', label: 'NC-series (GPU - NVIDIA Tesla)' },
+    { value: 'Standard_ND', label: 'ND-series (GPU - Deep Learning)' },
+    { value: 'Standard_NV', label: 'NV-series (GPU - Visualization)' },
+    // High Performance Compute
+    { value: 'Standard_H', label: 'H-series (High Performance Compute)' },
+    { value: 'Standard_HB', label: 'HB-series (HPC - Memory Bandwidth)' },
+    { value: 'Standard_HC', label: 'HC-series (HPC - Compute Intensive)' },
   ];
 
   const checkAvailability = async () => {
@@ -32,59 +87,21 @@ const VMChecker = () => {
     setError(null);
 
     try {
-      // Mock data for MVP (no API needed!)
-      const mockData = generateMockData(location, vmSeries);
+      // Call Azure Function API
+      const response = await fetch(`/api/GetVMAvailability?location=${location}&series=${vmSeries}`);
 
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-      setResults({
-        location: location,
-        series: vmSeries,
-        vms: mockData,
-        timestamp: new Date().toISOString()
-      });
+      const data = await response.json();
+      setResults(data);
     } catch (err) {
       setError('Failed to fetch VM availability. Please try again.');
       console.error(err);
     } finally {
       setLoading(false);
     }
-  };
-
-  // Mock data generator
-  const generateMockData = (loc, series) => {
-    const allVMs = {
-      'Standard_B': [
-        { name: 'Standard_B1s', vCPUs: 1, memoryGB: 1, available: true, pricePerMonth: 8 },
-        { name: 'Standard_B2s', vCPUs: 2, memoryGB: 4, available: true, pricePerMonth: 30 },
-        { name: 'Standard_B2ms', vCPUs: 2, memoryGB: 8, available: false, pricePerMonth: 60 },
-        { name: 'Standard_B4ms', vCPUs: 4, memoryGB: 16, available: true, pricePerMonth: 120 }
-      ],
-      'Standard_D': [
-        { name: 'Standard_D2s_v3', vCPUs: 2, memoryGB: 8, available: false, pricePerMonth: 70 },
-        { name: 'Standard_D2s_v4', vCPUs: 2, memoryGB: 8, available: true, pricePerMonth: 70 },
-        { name: 'Standard_D2s_v5', vCPUs: 2, memoryGB: 8, available: false, pricePerMonth: 68 },
-        { name: 'Standard_D4s_v3', vCPUs: 4, memoryGB: 16, available: true, pricePerMonth: 140 },
-        { name: 'Standard_D4s_v4', vCPUs: 4, memoryGB: 16, available: true, pricePerMonth: 140 },
-        { name: 'Standard_D8s_v4', vCPUs: 8, memoryGB: 32, available: true, pricePerMonth: 280 }
-      ],
-      'Standard_E': [
-        { name: 'Standard_E2s_v3', vCPUs: 2, memoryGB: 16, available: true, pricePerMonth: 120 },
-        { name: 'Standard_E2s_v4', vCPUs: 2, memoryGB: 16, available: true, pricePerMonth: 120 },
-        { name: 'Standard_E4s_v3', vCPUs: 4, memoryGB: 32, available: true, pricePerMonth: 240 },
-        { name: 'Standard_E4s_v4', vCPUs: 4, memoryGB: 32, available: false, pricePerMonth: 240 },
-        { name: 'Standard_E8s_v4', vCPUs: 8, memoryGB: 64, available: true, pricePerMonth: 480 }
-      ],
-      'Standard_F': [
-        { name: 'Standard_F2s_v2', vCPUs: 2, memoryGB: 4, available: true, pricePerMonth: 68 },
-        { name: 'Standard_F4s_v2', vCPUs: 4, memoryGB: 8, available: true, pricePerMonth: 136 },
-        { name: 'Standard_F8s_v2', vCPUs: 8, memoryGB: 16, available: true, pricePerMonth: 272 },
-        { name: 'Standard_F16s_v2', vCPUs: 16, memoryGB: 32, available: false, pricePerMonth: 544 }
-      ]
-    };
-
-    return allVMs[series] || [];
   };
 
   return (
