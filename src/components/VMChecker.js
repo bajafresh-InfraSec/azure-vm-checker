@@ -8,6 +8,7 @@ const VMChecker = () => {
   const initialSeries = urlParams.get('series') || 'Standard_D';
   const initialCompareMode = urlParams.get('compare') === 'true';
   const initialRegions = urlParams.get('regions') ? urlParams.get('regions').split(',') : ['centralus'];
+  const hasUrlParams = urlParams.get('region') || urlParams.get('regions');
 
   const [location, setLocation] = useState(initialLocation);
   const [vmSeries, setVmSeries] = useState(initialSeries);
@@ -18,13 +19,20 @@ const VMChecker = () => {
   const [compareMode, setCompareMode] = useState(initialCompareMode);
   const [selectedRegions, setSelectedRegions] = useState(initialRegions);
   const [compareResults, setCompareResults] = useState({});
+  const [autoLoaded, setAutoLoaded] = useState(false);
 
   // Auto-check on mount if URL has parameters
   useEffect(() => {
-    if (urlParams.get('region') || urlParams.get('regions')) {
-      checkAvailability();
+    if (hasUrlParams && !autoLoaded) {
+      setAutoLoaded(true);
+      // Trigger check after component mounts
+      const timer = setTimeout(() => {
+        checkAvailability();
+      }, 100);
+      return () => clearTimeout(timer);
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasUrlParams, autoLoaded]);
 
   // Update URL when parameters change
   const updateURL = () => {
