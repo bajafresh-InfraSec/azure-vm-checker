@@ -1,23 +1,44 @@
-# Azure VM Size Checker
+# azsize.com - Azure VM Size & Availability Checker
 
-Real-time Azure VM availability and pricing checker across all regions.
+Real-time Azure VM availability and pricing checker across all 49 regions. Check which VM sizes are available, compare multiple regions, view historical data, and get alternative recommendations instantly.
 
 **🌐 Live at: [www.azsize.com](https://www.azsize.com)**
 
-## 🚀 Features
+![azsize.com](https://img.shields.io/badge/status-live-brightgreen) ![Azure](https://img.shields.io/badge/Azure-VM%20Checker-0078D4) ![License](https://img.shields.io/badge/license-MIT-blue)
 
-- ✅ Check VM availability by region
-- ✅ Filter by VM series (B, D, E, F)
-- ✅ See pricing estimates
-- ✅ Fast, responsive UI
-- ✅ Free to use (MVP)
+## ✨ Features
+
+### Core Functionality
+- ✅ **Real-time Azure API Integration** - Direct calls to Azure Compute Management API
+- ✅ **49 Azure Regions** - Full global coverage
+- ✅ **24 VM Series** - D, E, F, B, N, L, M, and more
+- ✅ **Live Availability Checking** - See what's available right now
+- ✅ **Pricing Information** - Monthly cost estimates per VM
+- ✅ **Restriction Details** - Quota, zone, and location restrictions
+
+### Smart Features
+- 🔄 **Multi-Region Comparison** - Compare availability across multiple regions side-by-side
+- 📊 **Historical Data** - See availability trends over the last 7 days (37 popular VMs tracked hourly)
+- 💡 **Alternative Recommendations** - When a VM is unavailable, get suggestions for similar available VMs
+- 📥 **CSV Export** - Download results with full specifications, pricing, and restrictions
+- 🔗 **Deep Linking** - Share searches via URL parameters
+- 📋 **One-Click Sharing** - Copy URL to clipboard
+
+### User Experience
+- ⚡ **Fast & Responsive** - Optimized React UI with animated loading states
+- 📱 **Mobile-Friendly** - Fully responsive design
+- 🎨 **Modern UI** - Clean interface with hover effects and smooth animations
+- 🆓 **100% Free** - No rate limits, no authentication required
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: React
-- **Backend**: Azure Functions (Node.js)
+- **Frontend**: React with modern hooks
+- **Backend**: Azure Functions (Node.js 20)
 - **Hosting**: Azure Static Web Apps
-- **API**: Azure Compute Management SDK
+- **API**: Azure Compute Management REST API (direct HTTPS calls)
+- **Database**: Azure Table Storage (historical data)
+- **Data Collection**: Separate Azure Function App with timer trigger (hourly)
+- **Deployment**: GitHub Actions (auto-deploy on push)
 
 ## 📦 Local Development
 
@@ -89,33 +110,101 @@ az staticwebapp create \
   --output-location "build"
 ```
 
+## 🏗️ Architecture
+
+### Main Application (Static Web App)
+- **Frontend**: React SPA hosted on Azure Static Web Apps
+- **HTTP Functions**:
+  - `GetVMAvailability` - Checks VM availability via Azure Compute API
+  - `GetHistoricalData` - Queries Azure Table Storage for historical trends
+
+### Data Collection (Separate Function App)
+- **Timer Function**: `CollectAvailabilityData` runs hourly
+- **Tracks**: 37 popular VM sizes across 10 major regions
+- **Storage**: Azure Table Storage (`azsizedata` account)
+- **Why Separate**: Azure Static Web Apps don't support timer triggers
+
+### API Endpoints
+
+#### Check VM Availability
+```
+GET /api/GetVMAvailability?region={region}&seriesFilter={series}
+```
+Returns: Array of VM sizes with availability, pricing, and restrictions
+
+#### Get Historical Data
+```
+GET /api/GetHistoricalData?region={region}&vmSize={size}&days={days}
+```
+Returns: Availability percentage over specified time period
+
 ## 🎯 Roadmap
 
-### MVP (Current)
-- [x] Basic VM availability check
-- [x] Region selector
-- [x] VM series filter
-- [x] Pricing display
+### Completed (v1.0 - Live)
+- [x] Real Azure API integration (all 49 regions)
+- [x] 24 VM series support
+- [x] Historical availability data (7-day tracking)
+- [x] Multi-region comparison
+- [x] Alternative VM recommendations
+- [x] CSV export
+- [x] Deep linking & sharing
+- [x] SEO optimization
+- [x] Google Analytics
 
-### Phase 2 (Coming Soon)
-- [ ] Real Azure API integration
-- [ ] Historical availability data
+### Coming Soon (v1.1)
+- [ ] Google AdSense integration
+- [ ] Email alerts for availability changes
 - [ ] Price comparison charts
-- [ ] Export to CSV
-- [ ] Email alerts
+- [ ] Regional cost comparison
+- [ ] Save favorite VM configurations
 
-### Phase 3 (Monetization)
-- [ ] AI-powered recommendations
-- [ ] Premium features (freemium model)
+### Future (v2.0+)
+- [ ] CLI tool for DevOps workflows
 - [ ] API access for developers
-- [ ] Multi-region comparison
+- [ ] AI-powered VM recommendations
+- [ ] Team collaboration features
+- [ ] Terraform/ARM template generation
 
-## 💰 Monetization Plan
+## 💰 Monetization Strategy
 
-1. **Free Tier**: Basic availability checking
-2. **Pro Tier ($9-29/mo)**: Advanced features, alerts, exports
-3. **Enterprise**: API access, custom integrations
-4. **Ads**: Google AdSense on free tier
+### Website (Current)
+- **100% Free** - No rate limits, no authentication
+- **Revenue**: Google Ads + Azure training sponsorships
+- **Goal**: Maximum adoption, SEO, brand awareness
+
+### CLI Tool (Future)
+- **Free Tier**: 50 checks/month
+- **Pro ($9/mo)**: Unlimited checks, historical data, API access
+- **Enterprise ($49/mo for 5 users)**: AI recommendations, team features, SLA
+
+## 📊 Example Use Cases
+
+### 1. Multi-Region Availability Check
+Need to deploy VMs across multiple regions? Toggle "Compare Multiple Regions" and select regions to see side-by-side availability.
+
+### 2. Find Alternative VMs
+When your preferred VM is unavailable, azsize.com automatically suggests similar VMs with matching vCPU count and similar memory.
+
+### 3. Historical Trends
+Before committing to a VM size, check its 7-day availability percentage to understand if capacity issues are common.
+
+### 4. Share Searches
+Use the Share button to copy a direct link to your search, perfect for team collaboration or support tickets.
+
+### 5. Export Data
+Download CSV exports with full VM specifications, pricing, and restrictions for reporting or analysis.
+
+## 🔗 Deep Linking Examples
+
+Share direct links to searches:
+
+```
+# Single region search
+https://www.azsize.com/?region=eastus&series=Standard_D
+
+# Multi-region comparison
+https://www.azsize.com/?compare=true&regions=eastus,westus2,centralus&series=Standard_E
+```
 
 ## 📝 License
 
@@ -125,10 +214,14 @@ MIT License - feel free to use and modify!
 
 Contributions welcome! Please open an issue or PR.
 
-## 📧 Contact
+## 📧 Feedback
 
-Questions? Reach out at your@email.com
+Have suggestions or found a bug? We'd love to hear from you:
+- Open an issue on GitHub
+- Use the feedback form on [www.azsize.com](https://www.azsize.com)
 
 ---
 
-Built with ❤️ for the Azure community
+**Built for the Azure community**
+
+Star this repo if you find it useful! ⭐

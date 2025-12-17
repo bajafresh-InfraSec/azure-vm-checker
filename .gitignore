@@ -31,3 +31,10 @@ obj/
 *.swp
 *.swo
 *~
+
+# Project status files (contain secrets)
+PROJECT_STATUS.md
+PROJECT_STATUS_SAFE.md
+
+# Claude Code settings
+.claude/

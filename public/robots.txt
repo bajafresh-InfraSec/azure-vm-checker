@@ -1,0 +1,7 @@
+# www.robotstxt.org/
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://www.azsize.com/sitemap.xml

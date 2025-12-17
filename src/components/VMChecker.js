@@ -458,6 +458,10 @@ const VMChecker = () => {
           </div>
         </div>
       )}
+
+      <div className="feedback-widget">
+        <p>Have feedback or found a bug? <a href="mailto:feedback@azsize.com?subject=azsize.com Feedback" className="feedback-link">Let us know</a></p>
+      </div>
     </div>
   );
 };
