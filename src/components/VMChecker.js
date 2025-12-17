@@ -1,13 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './VMChecker.css';
 
 const VMChecker = () => {
-  const [location, setLocation] = useState('centralus');
-  const [vmSeries, setVmSeries] = useState('Standard_D');
+  // Parse URL parameters on mount
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialLocation = urlParams.get('region') || 'centralus';
+  const initialSeries = urlParams.get('series') || 'Standard_D';
+  const initialCompareMode = urlParams.get('compare') === 'true';
+  const initialRegions = urlParams.get('regions') ? urlParams.get('regions').split(',') : ['centralus'];
+
+  const [location, setLocation] = useState(initialLocation);
+  const [vmSeries, setVmSeries] = useState(initialSeries);
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [historicalData, setHistoricalData] = useState({});
+  const [compareMode, setCompareMode] = useState(initialCompareMode);
+  const [selectedRegions, setSelectedRegions] = useState(initialRegions);
+  const [compareResults, setCompareResults] = useState({});
+
+  // Auto-check on mount if URL has parameters
+  useEffect(() => {
+    if (urlParams.get('region') || urlParams.get('regions')) {
+      checkAvailability();
+    }
+  }, []);
+
+  // Update URL when parameters change
+  const updateURL = () => {
+    const params = new URLSearchParams();
+    if (compareMode) {
+      params.set('compare', 'true');
+      params.set('regions', selectedRegions.join(','));
+    } else {
+      params.set('region', location);
+    }
+    params.set('series', vmSeries);
+
+    const newURL = `${window.location.pathname}?${params.toString()}`;
+    window.history.pushState({}, '', newURL);
+  };
 
   const azureRegions = [
     // Americas
@@ -83,41 +115,103 @@ const VMChecker = () => {
     { value: 'Standard_HC', label: 'HC-series (HPC - Compute Intensive)' },
   ];
 
+  const exportToCSV = () => {
+    if (!results) return;
+
+    // Create CSV content
+    const headers = ['VM Size', 'vCPUs', 'Memory (GB)', 'Available', 'Price/Month', 'Restrictions'];
+    const rows = results.vms.map(vm => [
+      vm.name,
+      vm.vCPUs,
+      vm.memoryGB,
+      vm.available ? 'Yes' : 'No',
+      `$${vm.pricePerMonth}`,
+      vm.restrictions ? vm.restrictions.join(', ') : ''
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    // Download CSV
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `azure-vm-availability-${results.location}-${results.series}-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const shareCurrentSearch = () => {
+    const currentURL = window.location.href;
+    navigator.clipboard.writeText(currentURL).then(() => {
+      alert('Link copied to clipboard! Share this URL to show these exact results.');
+    }).catch(() => {
+      // Fallback for browsers without clipboard API
+      prompt('Copy this URL to share:', currentURL);
+    });
+  };
+
   const checkAvailability = async () => {
     setLoading(true);
     setError(null);
     setHistoricalData({});
+    updateURL(); // Update URL with current search parameters
 
     try {
-      // Call Azure Function API for current availability
-      const response = await fetch(`/api/GetVMAvailability?location=${location}&series=${vmSeries}`);
+      if (compareMode) {
+        // Compare mode: fetch data for multiple regions
+        const comparePromises = selectedRegions.map(region =>
+          fetch(`/api/GetVMAvailability?location=${region}&series=${vmSeries}`)
+            .then(res => res.ok ? res.json() : null)
+            .then(data => ({ region, data }))
+            .catch(() => ({ region, data: null }))
+        );
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+        const compareData = await Promise.all(comparePromises);
+        const compareMap = {};
+        compareData.forEach(item => {
+          if (item.data) {
+            compareMap[item.region] = item.data;
+          }
+        });
+        setCompareResults(compareMap);
+        setResults(null);
 
-      const data = await response.json();
-      setResults(data);
+      } else {
+        // Single region mode
+        const response = await fetch(`/api/GetVMAvailability?location=${location}&series=${vmSeries}`);
 
-      // Fetch historical data for each VM (in parallel)
-      const historicalPromises = data.vms.slice(0, 10).map(vm =>
-        fetch(`/api/GetHistoricalData?vmSize=${vm.name}&region=${location}&type=percentage&days=7`)
-          .then(res => res.ok ? res.json() : null)
-          .then(histData => ({
-            vmName: vm.name,
-            data: histData
-          }))
-          .catch(() => ({ vmName: vm.name, data: null }))
-      );
-
-      const historical = await Promise.all(historicalPromises);
-      const historicalMap = {};
-      historical.forEach(item => {
-        if (item.data && item.data.data) {
-          historicalMap[item.vmName] = item.data.data;
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-      });
-      setHistoricalData(historicalMap);
+
+        const data = await response.json();
+        setResults(data);
+        setCompareResults({});
+
+        // Fetch historical data for each VM (in parallel)
+        const historicalPromises = data.vms.slice(0, 10).map(vm =>
+          fetch(`/api/GetHistoricalData?vmSize=${vm.name}&region=${location}&type=percentage&days=7`)
+            .then(res => res.ok ? res.json() : null)
+            .then(histData => ({
+              vmName: vm.name,
+              data: histData
+            }))
+            .catch(() => ({ vmName: vm.name, data: null }))
+        );
+
+        const historical = await Promise.all(historicalPromises);
+        const historicalMap = {};
+        historical.forEach(item => {
+          if (item.data && item.data.data) {
+            historicalMap[item.vmName] = item.data.data;
+          }
+        });
+        setHistoricalData(historicalMap);
+      }
 
     } catch (err) {
       setError('Failed to fetch VM availability. Please try again.');
@@ -127,25 +221,64 @@ const VMChecker = () => {
     }
   };
 
+  const toggleRegion = (region) => {
+    if (selectedRegions.includes(region)) {
+      if (selectedRegions.length > 1) {
+        setSelectedRegions(selectedRegions.filter(r => r !== region));
+      }
+    } else {
+      setSelectedRegions([...selectedRegions, region]);
+    }
+  };
+
   return (
     <div className="vm-checker">
       <div className="search-panel">
         <h2>Check VM Availability</h2>
 
         <div className="form-group">
-          <label>Azure Region</label>
-          <select
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            className="form-control"
-          >
-            {azureRegions.map(region => (
-              <option key={region.value} value={region.value}>
-                {region.label}
-              </option>
-            ))}
-          </select>
+          <label className="toggle-label">
+            <input
+              type="checkbox"
+              checked={compareMode}
+              onChange={(e) => setCompareMode(e.target.checked)}
+              className="toggle-checkbox"
+            />
+            <span className="toggle-text">Compare Multiple Regions</span>
+          </label>
         </div>
+
+        {!compareMode ? (
+          <div className="form-group">
+            <label>Azure Region</label>
+            <select
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="form-control"
+            >
+              {azureRegions.map(region => (
+                <option key={region.value} value={region.value}>
+                  {region.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="form-group">
+            <label>Select Regions to Compare ({selectedRegions.length} selected)</label>
+            <div className="region-pills">
+              {azureRegions.map(region => (
+                <button
+                  key={region.value}
+                  onClick={() => toggleRegion(region.value)}
+                  className={`region-pill ${selectedRegions.includes(region.value) ? 'selected' : ''}`}
+                >
+                  {region.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="form-group">
           <label>VM Series</label>
@@ -167,9 +300,16 @@ const VMChecker = () => {
           className="btn-primary"
           disabled={loading}
         >
-          {loading ? 'Checking...' : 'Check Availability'}
+          {loading ? 'Checking...' : compareMode ? 'Compare Regions' : 'Check Availability'}
         </button>
       </div>
+
+      {loading && (
+        <div className="loading-indicator">
+          <div className="spinner"></div>
+          <p>{compareMode ? `Checking ${selectedRegions.length} regions...` : 'Checking availability...'}</p>
+        </div>
+      )}
 
       {error && (
         <div className="error-message">
@@ -177,16 +317,89 @@ const VMChecker = () => {
         </div>
       )}
 
-      {results && (
+      {compareMode && Object.keys(compareResults).length > 0 && (
         <div className="results-panel">
-          <h3>Results for {results.location}</h3>
-          <p className="results-meta">Last updated: {new Date(results.timestamp).toLocaleString()}</p>
+          <div className="results-header">
+            <div>
+              <h3>Region Comparison for {vmSeries}</h3>
+              <p className="results-meta">Comparing {Object.keys(compareResults).length} regions</p>
+            </div>
+            <div className="header-actions">
+              <button onClick={shareCurrentSearch} className="btn-share">
+                🔗 Share
+              </button>
+            </div>
+          </div>
+
+          <div className="compare-grid">
+            {Object.entries(compareResults).map(([region, data]) => (
+              <div key={region} className="compare-region">
+                <h4 className="region-name">
+                  {azureRegions.find(r => r.value === region)?.label || region}
+                </h4>
+                <div className="compare-stats">
+                  <div className="stat">
+                    <span className="stat-label">Total VMs:</span>
+                    <span className="stat-value">{data.vms.length}</span>
+                  </div>
+                  <div className="stat">
+                    <span className="stat-label">Available:</span>
+                    <span className="stat-value available">{data.vms.filter(v => v.available).length}</span>
+                  </div>
+                  <div className="stat">
+                    <span className="stat-label">Unavailable:</span>
+                    <span className="stat-value unavailable">{data.vms.filter(v => !v.available).length}</span>
+                  </div>
+                </div>
+                <div className="vm-list-compact">
+                  {data.vms.slice(0, 5).map(vm => (
+                    <div key={vm.name} className="vm-item-compact">
+                      <span className={`status-dot ${vm.available ? 'available' : 'unavailable'}`}></span>
+                      <span className="vm-name-compact">{vm.name}</span>
+                      <span className="vm-specs-compact">{vm.vCPUs}vCPU · {vm.memoryGB}GB</span>
+                    </div>
+                  ))}
+                  {data.vms.length > 5 && (
+                    <div className="vm-item-more">+ {data.vms.length - 5} more</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!compareMode && results && (
+        <div className="results-panel">
+          <div className="results-header">
+            <div>
+              <h3>Results for {results.location}</h3>
+              <p className="results-meta">Last updated: {new Date(results.timestamp).toLocaleString()}</p>
+            </div>
+            <div className="header-actions">
+              <button onClick={shareCurrentSearch} className="btn-share">
+                🔗 Share
+              </button>
+              <button onClick={exportToCSV} className="btn-export">
+                📊 Export to CSV
+              </button>
+            </div>
+          </div>
 
           <div className="vm-grid">
             {results.vms.map(vm => {
               const historical = historicalData[vm.name];
               const hasHistorical = historical && historical.total_checks > 0;
               const availabilityPct = hasHistorical ? historical.availability_pct : null;
+
+              // Find alternatives if unavailable
+              const alternatives = !vm.available
+                ? results.vms.filter(v =>
+                    v.available &&
+                    v.vCPUs === vm.vCPUs &&
+                    Math.abs(v.memoryGB - vm.memoryGB) <= 4
+                  ).slice(0, 2)
+                : [];
 
               return (
                 <div key={vm.name} className={`vm-card ${vm.available ? 'available' : 'unavailable'}`}>
@@ -218,6 +431,19 @@ const VMChecker = () => {
                       </div>
                     )}
                   </div>
+                  {alternatives.length > 0 && (
+                    <div className="alternatives">
+                      <div className="alternatives-header">💡 Try instead:</div>
+                      {alternatives.map(alt => (
+                        <div key={alt.name} className="alternative-item">
+                          <span className="alt-name">{alt.name}</span>
+                          <span className="alt-specs">
+                            {alt.vCPUs} vCPUs, {alt.memoryGB}GB · ${alt.pricePerMonth}/mo
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
