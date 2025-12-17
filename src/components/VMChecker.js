@@ -7,6 +7,7 @@ const VMChecker = () => {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [historicalData, setHistoricalData] = useState({});
 
   const azureRegions = [
     // Americas
@@ -85,9 +86,10 @@ const VMChecker = () => {
   const checkAvailability = async () => {
     setLoading(true);
     setError(null);
+    setHistoricalData({});
 
     try {
-      // Call Azure Function API
+      // Call Azure Function API for current availability
       const response = await fetch(`/api/GetVMAvailability?location=${location}&series=${vmSeries}`);
 
       if (!response.ok) {
@@ -96,6 +98,27 @@ const VMChecker = () => {
 
       const data = await response.json();
       setResults(data);
+
+      // Fetch historical data for each VM (in parallel)
+      const historicalPromises = data.vms.slice(0, 10).map(vm =>
+        fetch(`/api/GetHistoricalData?vmSize=${vm.name}&region=${location}&type=percentage&days=7`)
+          .then(res => res.ok ? res.json() : null)
+          .then(histData => ({
+            vmName: vm.name,
+            data: histData
+          }))
+          .catch(() => ({ vmName: vm.name, data: null }))
+      );
+
+      const historical = await Promise.all(historicalPromises);
+      const historicalMap = {};
+      historical.forEach(item => {
+        if (item.data && item.data.data) {
+          historicalMap[item.vmName] = item.data.data;
+        }
+      });
+      setHistoricalData(historicalMap);
+
     } catch (err) {
       setError('Failed to fetch VM availability. Please try again.');
       console.error(err);
@@ -160,30 +183,44 @@ const VMChecker = () => {
           <p className="results-meta">Last updated: {new Date(results.timestamp).toLocaleString()}</p>
 
           <div className="vm-grid">
-            {results.vms.map(vm => (
-              <div key={vm.name} className={`vm-card ${vm.available ? 'available' : 'unavailable'}`}>
-                <div className="vm-header">
-                  <h4>{vm.name}</h4>
-                  <span className={`status-badge ${vm.available ? 'available' : 'unavailable'}`}>
-                    {vm.available ? '✓ Available' : '✗ Unavailable'}
-                  </span>
+            {results.vms.map(vm => {
+              const historical = historicalData[vm.name];
+              const hasHistorical = historical && historical.total_checks > 0;
+              const availabilityPct = hasHistorical ? historical.availability_pct : null;
+
+              return (
+                <div key={vm.name} className={`vm-card ${vm.available ? 'available' : 'unavailable'}`}>
+                  <div className="vm-header">
+                    <h4>{vm.name}</h4>
+                    <span className={`status-badge ${vm.available ? 'available' : 'unavailable'}`}>
+                      {vm.available ? '✓ Available' : '✗ Unavailable'}
+                    </span>
+                  </div>
+                  <div className="vm-specs">
+                    <div className="spec">
+                      <span className="spec-label">vCPUs:</span>
+                      <span className="spec-value">{vm.vCPUs}</span>
+                    </div>
+                    <div className="spec">
+                      <span className="spec-label">Memory:</span>
+                      <span className="spec-value">{vm.memoryGB} GB</span>
+                    </div>
+                    <div className="spec">
+                      <span className="spec-label">Est. Price:</span>
+                      <span className="spec-value">${vm.pricePerMonth}/mo</span>
+                    </div>
+                    {hasHistorical && (
+                      <div className="spec historical-data">
+                        <span className="spec-label">Last 7 days:</span>
+                        <span className="spec-value">
+                          {availabilityPct !== null ? `${availabilityPct.toFixed(1)}% available` : 'N/A'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="vm-specs">
-                  <div className="spec">
-                    <span className="spec-label">vCPUs:</span>
-                    <span className="spec-value">{vm.vCPUs}</span>
-                  </div>
-                  <div className="spec">
-                    <span className="spec-label">Memory:</span>
-                    <span className="spec-value">{vm.memoryGB} GB</span>
-                  </div>
-                  <div className="spec">
-                    <span className="spec-label">Est. Price:</span>
-                    <span className="spec-value">${vm.pricePerMonth}/mo</span>
-                  </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

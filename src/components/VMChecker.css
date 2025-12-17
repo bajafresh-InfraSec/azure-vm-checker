@@ -173,6 +173,23 @@
   font-size: 1rem;
 }
 
+.spec.historical-data {
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed #e0e0e0;
+}
+
+.spec.historical-data .spec-label {
+  color: #888;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.spec.historical-data .spec-value {
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
 @media (max-width: 768px) {
   .vm-grid {
     grid-template-columns: 1fr;
