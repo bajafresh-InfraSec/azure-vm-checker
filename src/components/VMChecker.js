@@ -244,6 +244,16 @@ const VMChecker = () => {
       <div className="search-panel">
         <h2>Check VM Availability</h2>
 
+        <div className="cli-banner">
+          <span className="cli-icon">⚡</span>
+          <span className="cli-text">
+            New: CLI now available! Install with <code>npm install -g azsize</code>
+          </span>
+          <a href="https://www.npmjs.com/package/azsize" target="_blank" rel="noopener noreferrer" className="cli-link">
+            Learn more →
+          </a>
+        </div>
+
         <div className="form-group">
           <label className="toggle-label">
             <input
