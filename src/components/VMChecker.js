@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import './VMChecker.css';
+import { useAuth } from '../context/AuthContext';
+import { checkAnonymousLimit, incrementAnonymousUsage } from '../utils/anonymousRateLimit';
+import SignupModal from './Auth/SignupModal';
+import { useNavigate } from 'react-router-dom';
 
 const VMChecker = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const API_URL = process.env.REACT_APP_API_URL || '';
+
   // Parse URL parameters on mount
   const urlParams = new URLSearchParams(window.location.search);
   const initialLocation = urlParams.get('region') || 'centralus';
@@ -20,6 +28,7 @@ const VMChecker = () => {
   const [selectedRegions, setSelectedRegions] = useState(initialRegions);
   const [compareResults, setCompareResults] = useState({});
   const [autoLoaded, setAutoLoaded] = useState(false);
+  const [showSignupModal, setShowSignupModal] = useState(false);
 
   // Auto-check on mount if URL has parameters
   useEffect(() => {
@@ -163,6 +172,15 @@ const VMChecker = () => {
   };
 
   const checkAvailability = async () => {
+    // Check if user is authenticated
+    if (!user) {
+      const limit = checkAnonymousLimit();
+      if (!limit.allowed) {
+        setShowSignupModal(true);
+        return;
+      }
+    }
+
     setLoading(true);
     setError(null);
     setHistoricalData({});
@@ -172,7 +190,7 @@ const VMChecker = () => {
       if (compareMode) {
         // Compare mode: fetch data for multiple regions
         const comparePromises = selectedRegions.map(region =>
-          fetch(`/api/GetVMAvailability?location=${region}&series=${vmSeries}`)
+          fetch(`${API_URL}/api/GetVMAvailability?location=${region}&series=${vmSeries}`)
             .then(res => res.ok ? res.json() : null)
             .then(data => ({ region, data }))
             .catch(() => ({ region, data: null }))
@@ -190,7 +208,7 @@ const VMChecker = () => {
 
       } else {
         // Single region mode
-        const response = await fetch(`/api/GetVMAvailability?location=${location}&series=${vmSeries}`);
+        const response = await fetch(`${API_URL}/api/GetVMAvailability?location=${location}&series=${vmSeries}`);
 
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -202,7 +220,7 @@ const VMChecker = () => {
 
         // Fetch historical data for each VM (in parallel)
         const historicalPromises = data.vms.slice(0, 10).map(vm =>
-          fetch(`/api/GetHistoricalData?vmSize=${vm.name}&region=${location}&type=percentage&days=7`)
+          fetch(`${API_URL}/api/GetHistoricalData?vmSize=${vm.name}&region=${location}&type=percentage&days=7`)
             .then(res => res.ok ? res.json() : null)
             .then(histData => ({
               vmName: vm.name,
@@ -219,6 +237,11 @@ const VMChecker = () => {
           }
         });
         setHistoricalData(historicalMap);
+      }
+
+      // Increment anonymous usage if not authenticated
+      if (!user) {
+        incrementAnonymousUsage();
       }
 
     } catch (err) {
@@ -475,6 +498,14 @@ const VMChecker = () => {
           <a href="/privacy.html" target="_blank" className="feedback-link">Privacy Policy</a>
         </p>
       </div>
+
+      {showSignupModal && (
+        <SignupModal
+          onClose={() => setShowSignupModal(false)}
+          onSignup={() => navigate('/signup')}
+          onLogin={() => navigate('/login')}
+        />
+      )}
     </div>
   );
 };
