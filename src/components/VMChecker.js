@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 const VMChecker = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const API_URL = process.env.REACT_APP_API_URL || '';
+  const API_URL = process.env.REACT_APP_API_URL || 'https://www.azsize.com';
 
   // Parse URL parameters on mount
   const urlParams = new URLSearchParams(window.location.search);
