@@ -471,6 +471,9 @@ const VMChecker = () => {
 
       <div className="feedback-widget">
         <p>Have feedback or found a bug? <a href="mailto:feedback@azsize.com?subject=azsize.com Feedback" className="feedback-link">Let us know</a></p>
+        <p style={{ marginTop: '10px', fontSize: '12px' }}>
+          <a href="/privacy.html" target="_blank" className="feedback-link">Privacy Policy</a>
+        </p>
       </div>
     </div>
   );
