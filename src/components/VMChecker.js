@@ -265,8 +265,6 @@ const VMChecker = () => {
   return (
     <div className="vm-checker">
       <div className="search-panel">
-        <h2>Check VM Availability</h2>
-
         <div className="cli-banner">
           <span className="cli-icon">⚡</span>
           <span className="cli-text">

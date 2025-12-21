@@ -18,8 +18,7 @@ function App() {
           <Route path="/" element={
             <div className="App">
               <header className="App-header">
-                <img src="/azsize-logo.png" alt="AZSize.com - Azure VM Size Checker" className="logo" />
-                <p className="subtitle">Check VM availability and pricing across all Azure regions</p>
+                <img src="/FinderBanner.png" alt="AZSize.com - Azure VM Availability Finder" className="banner-logo" />
               </header>
               <main className="App-main">
                 <VMChecker />
