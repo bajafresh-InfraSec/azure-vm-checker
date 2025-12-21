@@ -12,11 +12,13 @@
 }
 
 .App-header .logo {
-  max-width: 500px;
+  max-width: 600px;
   width: 100%;
   height: auto;
   margin-bottom: 1rem;
   filter: drop-shadow(0 4px 8px rgba(0, 120, 212, 0.2));
+  object-fit: contain;
+  max-height: 150px;
 }
 
 .App-header h1 {
@@ -48,7 +50,8 @@
 
 @media (max-width: 768px) {
   .App-header .logo {
-    max-width: 300px;
+    max-width: 350px;
+    max-height: 100px;
   }
 
   .App-header h1 {
