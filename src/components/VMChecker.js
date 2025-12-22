@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import { checkAnonymousLimit, incrementAnonymousUsage } from '../utils/anonymousRateLimit';
 import SignupModal from './Auth/SignupModal';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../utils/supabase';
 
 const VMChecker = () => {
   const { user, session } = useAuth();

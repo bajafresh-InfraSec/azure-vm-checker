@@ -16,19 +16,20 @@ const Dashboard = () => {
   const [generatedKey, setGeneratedKey] = useState(null);
   const [generatingKey, setGeneratingKey] = useState(false);
 
+  const fetchData = async () => {
+    setLoading(true);
+    await Promise.all([fetchUsageStats(), fetchApiKeys()]);
+    setLoading(false);
+  };
+
   useEffect(() => {
     if (!user) {
       navigate('/login');
     } else {
       fetchData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, navigate]);
-
-  const fetchData = async () => {
-    setLoading(true);
-    await Promise.all([fetchUsageStats(), fetchApiKeys()]);
-    setLoading(false);
-  };
 
   const fetchUsageStats = async () => {
     try {
