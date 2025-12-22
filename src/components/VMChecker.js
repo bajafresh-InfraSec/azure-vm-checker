@@ -4,11 +4,22 @@ import { useAuth } from '../context/AuthContext';
 import { checkAnonymousLimit, incrementAnonymousUsage } from '../utils/anonymousRateLimit';
 import SignupModal from './Auth/SignupModal';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../utils/supabase';
 
 const VMChecker = () => {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const navigate = useNavigate();
   const API_URL = process.env.REACT_APP_API_URL || 'https://www.azsize.com';
+
+  // Helper to get auth headers
+  const getAuthHeaders = async () => {
+    if (session?.access_token) {
+      return {
+        'Authorization': `Bearer ${session.access_token}`
+      };
+    }
+    return {};
+  };
 
   // Parse URL parameters on mount
   const urlParams = new URLSearchParams(window.location.search);
@@ -187,10 +198,14 @@ const VMChecker = () => {
     updateURL(); // Update URL with current search parameters
 
     try {
+      const authHeaders = await getAuthHeaders();
+
       if (compareMode) {
         // Compare mode: fetch data for multiple regions
         const comparePromises = selectedRegions.map(region =>
-          fetch(`${API_URL}/api/GetVMAvailability?location=${region}&series=${vmSeries}`)
+          fetch(`${API_URL}/api/GetVMAvailability?location=${region}&series=${vmSeries}`, {
+            headers: authHeaders
+          })
             .then(res => res.ok ? res.json() : null)
             .then(data => ({ region, data }))
             .catch(() => ({ region, data: null }))
@@ -208,7 +223,9 @@ const VMChecker = () => {
 
       } else {
         // Single region mode
-        const response = await fetch(`${API_URL}/api/GetVMAvailability?location=${location}&series=${vmSeries}`);
+        const response = await fetch(`${API_URL}/api/GetVMAvailability?location=${location}&series=${vmSeries}`, {
+          headers: authHeaders
+        });
 
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -220,7 +237,9 @@ const VMChecker = () => {
 
         // Fetch historical data for each VM (in parallel)
         const historicalPromises = data.vms.slice(0, 10).map(vm =>
-          fetch(`${API_URL}/api/GetHistoricalData?vmSize=${vm.name}&region=${location}&type=percentage&days=7`)
+          fetch(`${API_URL}/api/GetHistoricalData?vmSize=${vm.name}&region=${location}&type=percentage&days=7`, {
+            headers: authHeaders
+          })
             .then(res => res.ok ? res.json() : null)
             .then(histData => ({
               vmName: vm.name,

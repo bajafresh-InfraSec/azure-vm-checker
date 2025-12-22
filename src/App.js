@@ -6,6 +6,7 @@ import VMChecker from './components/VMChecker';
 import Login from './components/Auth/Login';
 import Signup from './components/Auth/Signup';
 import Dashboard from './components/Dashboard/Dashboard';
+import Header from './components/Header/Header';
 
 function App() {
   return (
@@ -17,9 +18,7 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/" element={
             <div className="App">
-              <header className="App-header">
-                <img src="/FinderBanner.png" alt="AZSize.com - Azure VM Availability Finder" className="banner-logo" />
-              </header>
+              <Header />
               <main className="App-main">
                 <VMChecker />
               </main>

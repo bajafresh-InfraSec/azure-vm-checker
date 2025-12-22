@@ -1,4 +1,5 @@
 const https = require('https');
+const { checkAuth, checkRateLimit, logUsage } = require('../shared/auth');
 
 // In-memory cache with 15-minute TTL
 const cache = new Map();
@@ -16,7 +17,7 @@ module.exports = async function (context, req) {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-API-Key'
     };
 
     // Handle OPTIONS request for CORS preflight
@@ -25,12 +26,40 @@ module.exports = async function (context, req) {
         return;
     }
 
+    // Check authentication
+    const auth = await checkAuth(req);
+
+    // If authenticated user, check rate limit
+    if (auth.user && !auth.anonymous) {
+        const rateLimit = await checkRateLimit(auth.user.id, auth.user.plan_type);
+
+        if (rateLimit.exceeded) {
+            context.res = {
+                status: 429,
+                headers,
+                body: {
+                    error: 'Rate limit exceeded',
+                    usage: { used: rateLimit.count, limit: rateLimit.limit },
+                    message: 'You have used all your checks for this month. Upgrade to Pro for unlimited checks.',
+                    resetDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString()
+                }
+            };
+            return;
+        }
+    }
+
     try {
         // Check cache first
         const cacheKey = `${location}-${vmSeries}`;
         const cached = cache.get(cacheKey);
         if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
             context.log('Returning cached data');
+
+            // Log usage if authenticated
+            if (auth.user && !auth.anonymous) {
+                await logUsage(auth.user.id, auth.apiKeyId, 'check', vmSeries, location, req);
+            }
+
             context.res = {
                 status: 200,
                 headers,
@@ -127,6 +156,11 @@ module.exports = async function (context, req) {
             data: responseData,
             timestamp: Date.now()
         });
+
+        // Log usage if authenticated
+        if (auth.user && !auth.anonymous) {
+            await logUsage(auth.user.id, auth.apiKeyId, 'check', vmSeries, location, req);
+        }
 
         context.res = {
             status: 200,
